@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createExpense,
   deleteExpense,
@@ -6,31 +6,26 @@ import {
   fetchCategories,
   fetchExpenses
 } from "./api";
+import ExpenseForm from "./components/ExpenseForm";
+import InsightsCard from "./components/InsightsCard";
+import RecentExpenses from "./components/RecentExpenses";
+import {
+  createCurrencyFormatter,
+  formatCurrency,
+  formatDate,
+  getMonthStart,
+  getWeekStart,
+  parseDate
+} from "./utils/formatters";
 
 const defaultForm = {
   amount: "",
-  currency: "USD",
+  currency: "CAD",
   categoryId: "",
   merchant: "",
   note: "",
   date: new Date().toISOString().slice(0, 10)
 };
-
-const pad2 = (value) => String(value).padStart(2, "0");
-const formatDate = (date) =>
-  `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(
-    date.getUTCDate()
-  )}`;
-const parseDate = (value) => new Date(`${value}T00:00:00Z`);
-const getWeekStart = (date) => {
-  const day = date.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const start = new Date(date);
-  start.setUTCDate(date.getUTCDate() + diff);
-  return start;
-};
-const getMonthStart = (date) =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 
 function App() {
   const [expenses, setExpenses] = useState([]);
@@ -110,9 +105,7 @@ function App() {
       let label = "";
       if (groupBy === "month") {
         bucketDate = getMonthStart(expenseDate);
-        label = `${bucketDate.getUTCFullYear()}-${pad2(
-          bucketDate.getUTCMonth() + 1
-        )}`;
+        label = formatDate(bucketDate).slice(0, 7);
       } else {
         bucketDate = getWeekStart(expenseDate);
         label = `Week of ${formatDate(bucketDate)}`;
@@ -149,6 +142,11 @@ function App() {
   const displayCurrency = useMemo(
     () => expenses[0]?.currency || formState.currency,
     [expenses, formState.currency]
+  );
+
+  const displayFormatter = useMemo(
+    () => createCurrencyFormatter(displayCurrency),
+    [displayCurrency]
   );
 
   async function handleSubmit(event) {
@@ -225,244 +223,41 @@ function App() {
       {status.error ? <div className="error">{status.error}</div> : null}
 
       <section className="grid">
-        <div className="card">
+        <div className="card add-card">
           <h2>Add expense</h2>
-          <form className="form" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="amount">Amount</label>
-              <input
-                id="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formState.amount}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    amount: event.target.value
-                  }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="currency">Currency</label>
-              <input
-                id="currency"
-                value={formState.currency}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    currency: event.target.value.toUpperCase()
-                  }))
-                }
-                maxLength={3}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="category">Category</label>
-              <select
-                id="category"
-                value={formState.categoryId}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    categoryId: event.target.value
-                  }))
-                }
-                required
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="merchant">Merchant</label>
-              <input
-                id="merchant"
-                value={formState.merchant}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    merchant: event.target.value
-                  }))
-                }
-                placeholder="Optional"
-              />
-            </div>
-            <div>
-              <label htmlFor="note">Note</label>
-              <input
-                id="note"
-                value={formState.note}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    note: event.target.value
-                  }))
-                }
-                placeholder="Optional"
-              />
-            </div>
-            <div>
-              <label htmlFor="date">Date</label>
-              <input
-                id="date"
-                type="date"
-                value={formState.date}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    date: event.target.value
-                  }))
-                }
-                required
-              />
-            </div>
-            <button className="button" type="submit">
-              Add expense
-            </button>
-          </form>
+          <ExpenseForm
+            categories={categories}
+            formState={formState}
+            setFormState={setFormState}
+            onSubmit={handleSubmit}
+          />
         </div>
 
-        <div className="card">
-          <h2>Spending insights</h2>
-          <div className="controls">
-            <div>
-              <label htmlFor="report-from">From</label>
-              <input
-                id="report-from"
-                type="date"
-                value={reportRange.from}
-                onChange={(event) =>
-                  setReportRange((prev) => ({
-                    ...prev,
-                    from: event.target.value
-                  }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="report-to">To</label>
-              <input
-                id="report-to"
-                type="date"
-                value={reportRange.to}
-                onChange={(event) =>
-                  setReportRange((prev) => ({
-                    ...prev,
-                    to: event.target.value
-                  }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="group-by">Group by</label>
-              <select
-                id="group-by"
-                value={groupBy}
-                onChange={(event) => setGroupBy(event.target.value)}
-              >
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-              </select>
-            </div>
-          </div>
+        <InsightsCard
+          groupBy={groupBy}
+          setGroupBy={setGroupBy}
+          reportRange={reportRange}
+          setReportRange={setReportRange}
+          groupedExpenses={groupedExpenses}
+          maxBucketTotal={maxBucketTotal}
+          isRangeValid={isRangeValid}
+          reportStatus={reportStatus}
+          onDownload={handleDownloadReport}
+          formatCurrency={formatCurrency}
+          displayCurrency={displayCurrency}
+          displayFormatter={displayFormatter}
+        />
 
-          <div className="chart">
-            {groupedExpenses.length === 0 ? (
-              <div className="small">No expenses in this range.</div>
-            ) : (
-              groupedExpenses.map((bucket) => (
-                <div className="chart-row" key={bucket.key}>
-                  <div>
-                    <div className="small">{bucket.label}</div>
-                    <strong>
-                      {displayCurrency} {bucket.total.toFixed(2)}
-                    </strong>
-                  </div>
-                  <div className="chart-bar">
-                    <span
-                      style={{
-                        width: `${
-                          maxBucketTotal
-                            ? Math.round((bucket.total / maxBucketTotal) * 100)
-                            : 0
-                        }%`
-                      }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="report-actions">
-            <button
-              className="button secondary"
-              type="button"
-              onClick={handleDownloadReport}
-              disabled={!isRangeValid || reportStatus.loading}
-            >
-              {reportStatus.loading ? "Preparing PDF..." : "Download PDF report"}
-            </button>
-            {!isRangeValid ? (
-              <div className="small">Choose a valid date range.</div>
-            ) : null}
-            {reportStatus.error ? (
-              <div className="small error-inline">{reportStatus.error}</div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="card">
-          <h2>Recent expenses</h2>
-          <div className="summary">
-            <div>
-              <div className="small">Total spend</div>
-              <strong>
-                {displayCurrency} {total.toFixed(2)}
-              </strong>
-            </div>
-            <span className="badge">{expenses.length} entries</span>
-          </div>
-          <div className="list" style={{ marginTop: "16px" }}>
-            {status.loading ? (
-              <div className="small">Loading expenses...</div>
-            ) : expenses.length === 0 ? (
-              <div className="small">No expenses yet.</div>
-            ) : (
-              expenses.map((expense) => (
-                <div className="list-item" key={expense.id}>
-                  <div>
-                    <strong>
-                      {expense.currency} {Number(expense.amount).toFixed(2)}
-                    </strong>
-                    <div className="small">
-                      {categoryMap.get(expense.categoryId) || "Uncategorized"}
-                      {expense.merchant ? ` • ${expense.merchant}` : ""}
-                      {expense.note ? ` • ${expense.note}` : ""}
-                    </div>
-                    <div className="small">{expense.date}</div>
-                  </div>
-                  <button
-                    className="button"
-                    type="button"
-                    onClick={() => handleDelete(expense.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <RecentExpenses
+          expenses={expenses}
+          status={status}
+          total={total}
+          categoryMap={categoryMap}
+          formatCurrency={formatCurrency}
+          displayCurrency={displayCurrency}
+          displayFormatter={displayFormatter}
+          onDelete={handleDelete}
+        />
       </section>
     </div>
   );
