@@ -38,3 +38,21 @@ export async function deleteExpense(id) {
     throw new Error(message.error || "Failed to delete expense");
   }
 }
+
+export async function downloadExpenseReportPdf({ from, to, groupBy }) {
+  const params = new URLSearchParams({ from, to });
+  if (groupBy) {
+    params.set("groupBy", groupBy);
+  }
+  const response = await fetch(
+    `${API_BASE}/reports/expenses.pdf?${params.toString()}`,
+    {
+      headers: { Accept: "application/pdf" }
+    }
+  );
+  if (!response.ok) {
+    const message = await response.json().catch(() => ({}));
+    throw new Error(message.error || "Failed to download report");
+  }
+  return response.blob();
+}
